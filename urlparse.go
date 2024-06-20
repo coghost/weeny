@@ -25,13 +25,29 @@ func requestHash(url string, body io.Reader) uint64 {
 	h64 := fnv.New64a()
 	// reparse the url to fix ambiguities such as
 	// "http://example.com" vs "http://example.com/"
-	io.WriteString(h64, normalizeURL(url))
+	_, _ = io.WriteString(h64, normalizeURL(url))
 
 	if body != nil {
-		io.Copy(h64, body)
+		_, _ = io.Copy(h64, body)
 	}
 
 	return h64.Sum64()
+}
+
+func DomainFromURL(uri string) string {
+	uu, err := ParseURL(uri)
+	if err != nil {
+		return uri
+	}
+	return uu.Host
+}
+
+func URL2Str(uu *url.URL) string {
+	if uu == nil {
+		return ""
+	}
+
+	return uu.String()
 }
 
 func ParseURL(uri string) (*url.URL, error) {
@@ -48,16 +64,24 @@ func ParseURL(uri string) (*url.URL, error) {
 	return u2, err
 }
 
-func TruncateString(s string, max int) string {
-	if max <= 0 {
+func ShortenURL(uu *url.URL) string {
+	if uu.RawQuery != "" {
+		return uu.RawQuery
+	}
+
+	return uu.Path
+}
+
+func TruncateString(str string, maxLen int) string {
+	if maxLen <= 0 {
 		return ""
 	}
 
-	if utf8.RuneCountInString(s) < max {
-		return s
+	if utf8.RuneCountInString(str) < maxLen {
+		return str
 	}
 
-	return string([]rune(s)[:max])
+	return string([]rune(str)[:maxLen])
 }
 
 func AbsoluteURL(uri string, baseURL string) (string, error) {

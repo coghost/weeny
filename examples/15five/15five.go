@@ -22,20 +22,18 @@ func main() {
 
 	c.Bot.DisableImages()
 
-	c.OnHTML("html", func(e *weeny.HTMLElement) error {
+	c.OnHTML("html", func(e *weeny.HTMLElement) {
 		raw, err := e.DOM.Html()
 		if err != nil {
 			panic(err)
 		}
 
 		save(e.Request.URL.String(), raw)
-
-		return nil
 	})
 
-	c.OnHTML("a[href]", func(e *weeny.HTMLElement) error {
+	c.OnHTML("a[href]", func(e *weeny.HTMLElement) {
 		link := e.Attr("href")
-		return e.Request.Visit(link)
+		e.Request.Visit(link)
 	})
 
 	c.Visit(home)
