@@ -59,8 +59,10 @@ func (c *Crawler) GoBack(err error) error {
 }
 
 func (c *Crawler) LogTimeSpent(start time.Time) {
+	const skip = 3
+
 	if c.trackTime {
-		TimeTrack(start, 3)
+		TimeTrack(start, skip)
 	}
 }
 
@@ -79,4 +81,4 @@ func TimeTrack(start time.Time, skip int) {
 	log.Printf("%s took %s", name, elapsed)
 }
 
-func NoEcho(string, ...interface{}) {}
+func NoEcho(...any) {}

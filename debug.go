@@ -19,21 +19,41 @@ const (
 
 // echoEachRequest log every request.
 func (c *Crawler) echoEachRequest(req *Request) {
-	if c.debugRequest {
-		fmt.Fprintln(os.Stdout, req.debugString())
+	if !c.debugRequest {
+		return
 	}
+
+	fmt.Fprintln(os.Stdout, req.debugString())
 }
 
 // echoEachStep log every step.
 func (c *Crawler) echoEachStep(format string, args ...any) {
-	if c.debugStep {
-		if !strings.HasSuffix(format, "\n") {
-			format += "\n"
-		}
-
-		format = "%s %s " + format
-		b := []any{c, xpretty.Yellowf(string(glyphBug))}
-		b = append(b, args...)
-		fmt.Fprintf(os.Stdout, format, b...)
+	if !c.debugStep {
+		return
 	}
+
+	if !strings.HasSuffix(format, "\n") {
+		format += "\n"
+	}
+
+	format = "%s %s " + format
+	b := []any{c, xpretty.Yellowf(string(glyphBug))}
+	b = append(b, args...)
+	fmt.Fprintf(os.Stdout, format, b...)
+}
+
+// echoEachStep log every step.
+func (c *Crawler) echoVerifier(format string, args ...any) {
+	if !c.debugVerifier {
+		return
+	}
+
+	if !strings.HasSuffix(format, "\n") {
+		format += "\n"
+	}
+
+	format = "%s %s " + format
+	b := []any{c, xpretty.Yellowf(string(glyphBug))}
+	b = append(b, args...)
+	fmt.Fprintf(os.Stdout, format, b...)
 }

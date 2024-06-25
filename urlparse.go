@@ -7,6 +7,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/coghost/wee"
 	whatwgUrl "github.com/nlnwa/whatwg-url/url"
 )
 
@@ -34,7 +35,14 @@ func requestHash(url string, body io.Reader) uint64 {
 	return h64.Sum64()
 }
 
-func DomainFromURL(uri string) string {
+func requestNamify(uu *url.URL) string {
+	st := ShortenURL(uu)
+	st = strings.TrimPrefix(st, "/")
+	return wee.Filenamify(st)
+}
+
+// HostFromURL extract `Host` from url
+func HostFromURL(uri string) string {
 	uu, err := ParseURL(uri)
 	if err != nil {
 		return uri
@@ -42,6 +50,7 @@ func DomainFromURL(uri string) string {
 	return uu.Host
 }
 
+// URL2Str return url.String() or "" if url is nil.
 func URL2Str(uu *url.URL) string {
 	if uu == nil {
 		return ""

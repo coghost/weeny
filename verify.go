@@ -44,7 +44,7 @@ func (c *Crawler) requestCheck(parsedURL *url.URL, depth int) error {
 		return ErrMaxDepth
 	}
 
-	if err := c.checkVistedStatus(parsedURL); err != nil {
+	if err := c.checkVisitedStatus(parsedURL); err != nil {
 		return err
 	}
 
@@ -53,6 +53,27 @@ func (c *Crawler) requestCheck(parsedURL *url.URL, depth int) error {
 	}
 
 	return nil
+}
+
+func (c *Crawler) checkVisitedStatus(parsedURL *url.URL) error {
+	uHash := c.uidGen(parsedURL)
+
+	visited, err := c.store.IsVisited(uHash)
+	if err != nil {
+		return err
+	}
+
+	if visited {
+		return errVisited(URL2Str(parsedURL))
+	}
+
+	// return c.store.Visited(uHash)
+	return nil
+}
+
+func (c *Crawler) setVisited(parsedURL *url.URL) error {
+	uHash := c.uidGen(parsedURL)
+	return c.store.Visited(uHash)
 }
 
 func (c *Crawler) checkDomains(domain string) error {

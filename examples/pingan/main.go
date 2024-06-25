@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/coghost/weeny"
-	"github.com/gocolly/redisstorage"
+	"github.com/coghost/weeny/storage"
 	"github.com/k0kubun/pp/v3"
 )
 
@@ -15,16 +15,8 @@ func main() {
 		pagination = `button.btn-next`
 	)
 
-	storage := &redisstorage.Storage{
-		Address:  "127.0.0.1:6381",
-		Password: "",
-		DB:       2,
-		Prefix:   "pingan",
-	}
-
 	c := weeny.NewCrawler()
-
-	c.MustSetStorage(storage)
+	c.MustSetStorage(storage.MustNewRedisStorage("127.0.0.1:6381", "", 2, "pingan"))
 
 	c.OnHTML(items, func(e *weeny.HTMLElement) {
 		c.Pie(e.Request.VisitElem(

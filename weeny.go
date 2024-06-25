@@ -15,6 +15,8 @@ import (
 	"go.uber.org/zap"
 )
 
+type UIDGenerator func(*url.URL) string
+
 const (
 	_capacity = 4
 )
@@ -28,17 +30,21 @@ type Crawler struct {
 	maxDepth     int
 	requestCount uint32
 
-	debugRequest bool
-	debugStep    bool
+	debugRequest  bool
+	debugStep     bool
+	debugVerifier bool
 
 	stableDiff float64
 	headless   bool
 	trackTime  bool
 
+	uidGen UIDGenerator
 	// allowURLRevisit   bool
 	allowedDomains []string
 	// disallowedDomains []string
 	ignoredErrors []error
+
+	responseCallbacks []ResponseCallback
 
 	htmlCallbacks   []*htmlCallbackContainer
 	pagingCallbacks []*serpCallbackContainer
@@ -68,6 +74,18 @@ func DebugEachRequest(b bool) CrawlerOption {
 func DebugDetailStep(b bool) CrawlerOption {
 	return func(c *Crawler) {
 		c.debugStep = b
+	}
+}
+
+func DebugVerifier(b bool) CrawlerOption {
+	return func(c *Crawler) {
+		c.debugVerifier = b
+	}
+}
+
+func UIDGen(fn UIDGenerator) CrawlerOption {
+	return func(c *Crawler) {
+		c.uidGen = fn
 	}
 }
 
@@ -108,7 +126,7 @@ func IgnoredErrors(errs ...error) CrawlerOption {
 }
 
 func NewCrawlerMuted(options ...CrawlerOption) *Crawler {
-	c := NewCrawler()
+	c := NewCrawler(options...)
 
 	c.debugRequest = false
 	c.debugStep = false
@@ -139,6 +157,7 @@ func (c *Crawler) init() {
 	c.store = &storage.InMemoryStorage{}
 	_ = c.store.Init()
 	c.wg = &sync.WaitGroup{}
+	c.uidGen = requestNamify
 
 	c.debugRequest = true
 	c.debugStep = true
@@ -191,10 +210,10 @@ func (c *Crawler) scrape(ctx *Context, depth int, opts ...VisitOptionFunc) error
 	opt := &VisitOptions{}
 	bindVisitOptions(opt, opts...)
 
-	// c.echoEachStep("check(%s)", opt.url)
+	c.echoVerifier("verify (%s)", opt.url)
 	parsedURL, err := c.parseAndCheck(depth, opts...)
 	if err != nil {
-		// c.echoEachStep("parseURL failed: %+v", err)
+		c.echoVerifier("verify failed: %+v", err)
 		return fmt.Errorf("parse or check failed: %w", err)
 	}
 
@@ -214,17 +233,25 @@ func (c *Crawler) fetch(parsedURL *url.URL, depth int, ctx *Context, opts ...Vis
 		ID:      atomic.AddUint32(&c.requestCount, 1),
 	}
 
+	// get html page by request url directly or click elem, and wait page ready.
 	err := c.request(request, parsedURL, opts...)
 	if err != nil {
 		return err
 	}
 
+	// the response is the data we want.
 	response := &Response{
 		Request: request,
 		Body:    []byte(c.Bot.Page().MustHTML()),
 	}
 
 	response.Ctx = ctx
+
+	c.echoEachStep("OnResponse %s", request.RID())
+	c.handleOnResponse(response)
+
+	// only set visited when response is successful.
+	c.setVisited(parsedURL)
 
 	c.echoEachStep("OnHTML %s", request.RID())
 	if err := c.handleOnHTML(response); err != nil {
@@ -239,20 +266,15 @@ func (c *Crawler) fetch(parsedURL *url.URL, depth int, ctx *Context, opts ...Vis
 	return nil
 }
 
-func (c *Crawler) checkVistedStatus(parsedURL *url.URL) error {
-	uri := parsedURL.String()
-	uHash := requestHash(uri, nil)
-
-	visited, err := c.store.IsVisited(uHash)
-	if err != nil {
-		return err
+// OnResponse registers a function. Function will be executed on every response
+func (c *Crawler) OnResponse(f ResponseCallback) {
+	c.lock.Lock()
+	if c.responseCallbacks == nil {
+		c.responseCallbacks = make([]ResponseCallback, 0, 4)
 	}
 
-	if visited {
-		return errVisited(uri)
-	}
-
-	return c.store.Visited(uHash)
+	c.responseCallbacks = append(c.responseCallbacks, f)
+	c.lock.Unlock()
 }
 
 // OnHTML registers a function. Function will be executed on every HTML
@@ -302,6 +324,12 @@ func (c *Crawler) OnPaging(selector string, f SerpCallback) {
 	})
 
 	c.lock.Unlock()
+}
+
+func (c *Crawler) handleOnResponse(r *Response) {
+	for _, f := range c.responseCallbacks {
+		f(r)
+	}
 }
 
 func (c *Crawler) handleOnHTML(resp *Response) error {

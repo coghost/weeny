@@ -1,9 +1,6 @@
 package main
 
 import (
-	"net/url"
-	"strings"
-
 	"github.com/coghost/wee"
 	"github.com/coghost/weeny"
 	"github.com/gookit/goutil/fsutil"
@@ -40,7 +37,7 @@ func main() {
 }
 
 func save(url string, raw string) {
-	name := uniqname(url)
+	name := wee.NameFromURL(url)
 	name = "/tmp/15five/" + name + ".html"
 	fsutil.MkParentDir(name)
 
@@ -48,31 +45,4 @@ func save(url string, raw string) {
 	if err != nil {
 		panic(err)
 	}
-}
-
-func uniqname(uri string) string {
-	pu, err := url.Parse(uri)
-	if err != nil {
-		panic(err)
-	}
-
-	name := uri
-
-	if uri == home {
-		return "homepage"
-	}
-
-	if pu.Host == "www.15five.com" {
-		arr := strings.Split(uri, pu.Host)
-		name = arr[1]
-	}
-
-	name = strings.TrimPrefix(name, "/")
-	name = strings.TrimSuffix(name, "/")
-
-	if name == "" {
-		name = "homepage"
-	}
-
-	return wee.Filenamify(name)
 }
